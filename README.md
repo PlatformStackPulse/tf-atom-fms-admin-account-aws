@@ -1,5 +1,7 @@
 # tf-atom-fms-admin-account-aws
 
+> Terraform atom that designates an AWS account as the AWS Firewall Manager (FMS) administrator — the prerequisite for creating any FMS security policies.
+
 [![CI](https://github.com/PlatformStackPulse/tf-atom-fms-admin-account-aws/actions/workflows/ci.yml/badge.svg)](https://github.com/PlatformStackPulse/tf-atom-fms-admin-account-aws/actions/workflows/ci.yml)
 [![Release](https://github.com/PlatformStackPulse/tf-atom-fms-admin-account-aws/actions/workflows/auto-release.yml/badge.svg)](https://github.com/PlatformStackPulse/tf-atom-fms-admin-account-aws/actions/workflows/auto-release.yml)
 [![CodeQL](https://github.com/PlatformStackPulse/tf-atom-fms-admin-account-aws/actions/workflows/codeql.yml/badge.svg)](https://github.com/PlatformStackPulse/tf-atom-fms-admin-account-aws/actions/workflows/codeql.yml)
@@ -47,10 +49,25 @@ AWS Provider
 
 ## Usage
 
+Designate the current account as the FMS administrator (context supplies namespace/stage/name for tagging):
+
 ```hcl
 module "fms_admin_account" {
-  source = "git::https://github.com/PlatformStackPulse/tf-atom-fms-admin-account-aws.git?ref=v1.1.0"
+  source  = "git::https://github.com/PlatformStackPulse/tf-atom-fms-admin-account-aws.git?ref=v1.0.0"
   context = module.this.context
+}
+```
+
+Or explicitly designate a specific account and identity labels:
+
+```hcl
+module "fms_admin_account" {
+  source = "git::https://github.com/PlatformStackPulse/tf-atom-fms-admin-account-aws.git?ref=v1.0.0"
+
+  namespace  = "eg"
+  stage      = "prod"
+  name       = "fms-admin"
+  account_id = "123456789012" # optional; defaults to the current account
 }
 ```
 
@@ -112,3 +129,19 @@ module "fms_admin_account" {
 | <a name="output_admin_account_id"></a> [admin\_account\_id](#output\_admin\_account\_id) | The AWS account ID of the FMS administrator. |
 | <a name="output_enabled"></a> [enabled](#output\_enabled) | Whether the module is enabled. |
 <!-- END_TF_DOCS -->
+
+## Tests
+
+Unit tests use the Terraform `test` framework with a **mock AWS provider**, so they run with no AWS credentials and create nothing. They assert on plan-known values (the tf-label `id`, planned resource count, and input pass-throughs).
+
+```bash
+terraform init -backend=false
+terraform test -test-directory=tests/unit
+```
+
+| Test file | Runs | What it checks |
+|-----------|------|----------------|
+| `tests/unit/main_test.tftest.hcl` | `creates_when_enabled` | `id == "eg-test-thing"`, one `aws_fms_admin_account` planned, `account_id` pass-through, `enabled` output |
+| `tests/unit/main_test.tftest.hcl` | `disabled_creates_nothing` | zero resources when `enabled = false`, `enabled`/`admin_account_id` outputs |
+
+Integration tests (`tests/integration/`) run against a real AWS provider and create real resources; they are opt-in and require valid credentials.
